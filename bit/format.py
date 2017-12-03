@@ -1,7 +1,7 @@
 from coincurve import verify_signature as _vs
 
 from bit.base58 import b58decode_check, b58encode_check
-from bit.crypto import ripemd160_sha256
+from bit.crypto import ripemd160_sha256, sha256
 from bit.curve import x_to_y
 
 from bit.utils import int_to_unknown_bytes
@@ -120,6 +120,21 @@ def public_key_to_address(public_key, version='main'):
     return b58encode_check(version + ripemd160_sha256(public_key))
 
 
+def public_key_to_segwit_address(public_key, version='main'):
+
+    if version == 'test':
+        version = TEST_SCRIPT_HASH
+    else:
+        version = MAIN_SCRIPT_HASH
+
+    length = len(public_key)
+
+    if length != 33:
+        raise ValueError('{} is an invalid length for a public key. Segwit only uses compressed public keys'.format(length))
+
+    return b58encode_check(version + ripemd160_sha256(b'\x00\x14' + ripemd160_sha256(public_key)))
+
+
 def multisig_to_redeemscript(public_keys, m):
 # public_keys must be provided as a list
     from bit.utils import hex_to_bytes, script_push
@@ -153,6 +168,15 @@ def multisig_to_address(public_keys, m, version='main'):
         version = MAIN_SCRIPT_HASH
 
     return b58encode_check(version + ripemd160_sha256(multisig_to_redeemscript(public_keys, m)))
+
+
+def multisig_to_segwit_address(public_keys, m, version='main'):
+    if version == 'test':
+        version = TEST_SCRIPT_HASH
+    else:
+        version = MAIN_SCRIPT_HASH
+
+    return b58encode_check(version + ripemd160_sha256(b'\x00\x20' + sha256(multisig_to_redeemscript(public_keys, m))))
 
 
 def public_key_to_coords(public_key):
