@@ -1,3 +1,4 @@
+import logging
 from collections import namedtuple
 from itertools import islice
 import re
@@ -127,7 +128,11 @@ def estimate_tx_fee(n_in, n_out, satoshis, compressed):
         + 8
     )
 
-    return estimated_size * satoshis
+    estimated_fee = estimated_size * satoshis
+
+    logging.debug('Estimated fee: {} satoshis for {} bytes'.format(estimated_fee, estimated_size))
+
+    return estimated_fee
 
 
 def deserialize(txhex):
@@ -183,6 +188,11 @@ def deserialize(txhex):
 
 
 def sanitize_tx_data(unspents, outputs, fee, leftover, combine=True, message=None, compressed=True):
+    """
+    sanitize_tx_data()
+
+    fee is in satoshis per byte.
+    """
 
     outputs = outputs.copy()
 
@@ -202,13 +212,16 @@ def sanitize_tx_data(unspents, outputs, fee, leftover, combine=True, message=Non
         for message in message_chunks:
             messages.append((message, 0))
 
-    # Include return address in fee estimate.
-    fee = estimate_tx_fee(len(unspents), len(outputs) + len(messages) + 1, fee, compressed)
-    total_out = sum(out[1] for out in outputs) + fee
+    # Include return address in output count.
+    num_outputs = len(outputs) + len(messages) + 1
+    sum_outputs = sum(out[1] for out in outputs)
 
     total_in = 0
 
     if combine:
+        # calculated_fee is in total satoshis.
+        calculated_fee = estimate_tx_fee(len(unspents), num_outputs, fee, compressed)
+        total_out = sum_outputs + calculated_fee
         unspents = unspents.copy()
         total_in += sum(unspent.amount for unspent in unspents)
 
@@ -219,6 +232,8 @@ def sanitize_tx_data(unspents, outputs, fee, leftover, combine=True, message=Non
 
         for index, unspent in enumerate(unspents):
             total_in += unspent.amount
+            calculated_fee = estimate_tx_fee(len(unspents[:index + 1]), num_outputs, fee, compressed)
+            total_out = sum_outputs + calculated_fee
 
             if total_in >= total_out:
                 break
