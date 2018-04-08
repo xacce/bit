@@ -30,7 +30,6 @@ INPUTS = [
          b"hu\xa7\x1a]\xb6L\xff\xcb\x139k\x16=\x03\x9b\x1d\x93'\x82H\x91\x80C4v"
          b"\xa45**\xdd\x00\xeb\xb0\xd5\xc9LQ[r\xeb\x10\xf1\xfd\x8f?\x03\xb4/J+%["
          b"\xfc\x9a\xa9\xe3"),
-#        b'\x8a',
         (b"\x88x9\x9d\x83\xec%\xc6'\xcf\xbfu?\xf9\xca6\x027>"
          b"\xacCz\xb2gaT\xa3\xc2\xda#\xad\xf3"),
         b'\x01\x00\x00\x00'
@@ -84,7 +83,7 @@ class TestTxIn:
         assert txin1 != txin3
 
     def test_repr(self):
-        txin = TxIn(b'script', b'txid', b'\x04', b'\xff\xff\xff\xff')
+        txin = TxIn(b'script', b'txid', b'\x04', sequence=b'\xff\xff\xff\xff')
 
         assert repr(txin) == "TxIn(b'script', {}, b'txid', {}, {})" \
                              "".format(repr(b'\x06'), repr(b'\x04'), repr(b'\xff\xff\xff\xff'))

@@ -41,7 +41,7 @@ class TxIn:
         self.txid = txid
         self.txindex = txindex
         self.witness = witness
-        if amount == 0:
+        if amount == 0 and segwit:
             amount = NetworkAPI.get_tx_amount(bytes_to_hex(self.txid[::-1]), int.from_bytes(self.txindex, byteorder='little')).to_bytes(8, byteorder='little')
         self.amount = amount
         self.sequence = sequence
@@ -58,16 +58,25 @@ class TxIn:
                 self.segwit == other.segwit)
 
     def __repr__(self):
-        return 'TxIn({}, {}, {}, {}, {}, {}, {}, {})'.format(
-            repr(self.script),
-            repr(self.script_len),
-            repr(self.txid),
-            repr(self.txindex),
-            repr(self.witness),
-            repr(self.amount),
-            repr(self.sequence),
-            repr(self.segwit)
-        )
+        if self.segwit:
+            return 'TxIn({}, {}, {}, {}, {}, {}, {}, {})'.format(
+                repr(self.script),
+                repr(self.script_len),
+                repr(self.txid),
+                repr(self.txindex),
+                repr(self.witness),
+                repr(self.amount),
+                repr(self.sequence),
+                repr(self.segwit)
+            )
+        else:
+            return 'TxIn({}, {}, {}, {}, {})'.format(
+                repr(self.script),
+                repr(self.script_len),
+                repr(self.txid),
+                repr(self.txindex),
+                repr(self.sequence)
+            )
     def __bytes__(self):
         return b''.join([
             self.txid,
