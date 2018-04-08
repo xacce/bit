@@ -165,7 +165,9 @@ class PrivateKey(BaseKey):
     @property
     def sw_address(self):
         """The public segwit nested in P2SH address you share with others to receive funds."""
-        if self._sw_address is None:
+        if self._sw_address is None and self.is_compressed():  # Only make segwit address if public key is compressed
+                                                               # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                               #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
             self._sw_address = public_key_to_segwit_address(self._public_key, version='main')
         return self._sw_address
 
@@ -215,11 +217,12 @@ class PrivateKey(BaseKey):
 
         :rtype: ``list`` of :class:`~bit.network.meta.Unspent`
         """
-        sw_unspents = NetworkAPI.get_unspent(self.sw_address)
-        for u in sw_unspents:
-            u.segwit = True
         self.unspents[:] = NetworkAPI.get_unspent(self.address)
-        self.unspents += sw_unspents  # Adds Segwit UTXO
+        if self.is_compressed():  # Only check segwit balance if public key is compressed
+            sw_unspents = NetworkAPI.get_unspent(self.sw_address)
+            for u in sw_unspents:
+                u.segwit = True
+            self.unspents += sw_unspents  # Adds Segwit UTXO
         self.balance = sum(unspent.amount for unspent in self.unspents)
         return self.unspents
 
@@ -229,7 +232,8 @@ class PrivateKey(BaseKey):
         :rtype: ``list`` of ``str`` transaction IDs
         """
         self.transactions[:] = NetworkAPI.get_transactions(self.address)
-        self.transactions += NetworkAPI.get_transactions(self.sw_address)
+        if self.is_compressed():  # Only check segwit transactions if public key is compressed
+            self.transactions += NetworkAPI.get_transactions(self.sw_address)
         return self.transactions
 
     def create_transaction(self, outputs, fee=None, leftover=None, combine=True,
@@ -479,7 +483,9 @@ class PrivateKeyTestnet(BaseKey):
     @property
     def sw_address(self):
         """The public segwit nested in P2SH address you share with others to receive funds."""
-        if self._sw_address is None:
+        if self._sw_address is None and self.is_compressed():  # Only make segwit address if public key is compressed
+                                                               # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                               #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
             self._sw_address = public_key_to_segwit_address(self._public_key, version='test')
         return self._sw_address
 
@@ -529,11 +535,12 @@ class PrivateKeyTestnet(BaseKey):
 
         :rtype: ``list`` of :class:`~bit.network.meta.Unspent`
         """
-        sw_unspents = NetworkAPI.get_unspent_testnet(self.sw_address)
-        for u in sw_unspents:
-            u.segwit = True
         self.unspents[:] = NetworkAPI.get_unspent_testnet(self.address)
-        self.unspents += sw_unspents  # Add Segwit UTXO
+        if self.is_compressed():  # Only check segwit unspents if public key is compressed
+            sw_unspents = NetworkAPI.get_unspent_testnet(self.sw_address)
+            for u in sw_unspents:
+                u.segwit = True
+            self.unspents += sw_unspents  # Add Segwit UTXO
         self.balance = sum(unspent.amount for unspent in self.unspents)
         return self.unspents
 
@@ -543,7 +550,8 @@ class PrivateKeyTestnet(BaseKey):
         :rtype: ``list`` of ``str`` transaction IDs
         """
         self.transactions[:] = NetworkAPI.get_transactions_testnet(self.address)
-        self.transactions += NetworkAPI.get_transactions_testnet(self.sw_address)
+        if self.is_compressed():  # Only check segwit transactions if public key is compressed
+            self.transactions += NetworkAPI.get_transactions_testnet(self.sw_address)
         return self.transactions
 
     def create_transaction(self, outputs, fee=None, leftover=None, combine=True,
@@ -802,6 +810,7 @@ class MultiSig:
             self.public_keys = public_keys
             self.m = m
             self.redeemscript = multisig_to_redeemscript(public_keys, self.m)
+            self.is_compressed = all(len(p) == 33 for p in public_keys)
 
     @property
     def address(self):
@@ -813,7 +822,9 @@ class MultiSig:
     @property
     def sw_address(self):
         """The public segwit nested in P2SH address you share with others to receive funds."""
-        if self._sw_address is None:
+        if self._sw_address is None and self.is_compressed is True:  # Only make segwit-address if all public keys are compressed
+                                                                     # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                                     #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
             self._sw_address = multisig_to_segwit_address(self.public_keys, self.m, version='main')
         return self._sw_address
 
@@ -1091,18 +1102,21 @@ class MultiSigTestnet:
             self.public_keys = public_keys
             self.m = m
             self.redeemscript = multisig_to_redeemscript(public_keys, self.m)
+            self.is_compressed = all(len(p) == 33 for p in public_keys)
 
     @property
     def address(self):
         """The public address you share with others to receive funds."""
-        if self._address is None:
+        if self._address is None and self.is_compressed is True:
             self._address = multisig_to_address(self.public_keys, self.m, version=self.version)
         return self._address
 
     @property
     def sw_address(self):
         """The public segwit nested in P2SH address you share with others to receive funds."""
-        if self._sw_address is None:
+        if self._sw_address is None and self.is_compressed is True:  # Only make segwit-address if all public keys are compressed
+                                                                     # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                                     #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
             self._sw_address = multisig_to_segwit_address(self.public_keys, self.m, version='test')
         return self._sw_address
 
