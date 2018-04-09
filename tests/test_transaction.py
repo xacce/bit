@@ -226,6 +226,21 @@ class TestConstructOutputBlock:
         outs = construct_outputs(outputs)
         assert len(outs) == 5 and outs[3].value == amount and outs[4].value == amount
 
+    def test_outputs_pay2sh(self):
+        amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
+        _, outputs = sanitize_tx_data(
+            UNSPENTS, [('39SrGQEfFXcTYJhBvjZeQja66Cpz82EEUn', 1, 'satoshi')], 0, RETURN_ADDRESS
+        )
+        outs = construct_outputs(outputs)
+        assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a91455131efb7a0edd4c76cc3bbe833bfc59a6f73c6b87'
+
+    def test_outputs_pay2sh_testnet(self):
+        amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
+        _, outputs = sanitize_tx_data(
+            UNSPENTS, [('2NFKbBHzzh32q5DcZJNgZE9sF7gYmtPbawk', 1, 'satoshi')], 0, RETURN_ADDRESS
+        )
+        outs = construct_outputs(outputs)
+        assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a914f2261e9564c9dfffa81505c153fb95bf9399430887'
 
 def test_construct_input_block():
     assert construct_input_block(INPUTS) == hex_to_bytes(INPUT_BLOCK)
