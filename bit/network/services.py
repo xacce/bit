@@ -17,6 +17,7 @@ class InsightAPI:
     MAIN_BALANCE_API = ''
     MAIN_UNSPENT_API = ''
     MAIN_TX_PUSH_API = ''
+    MAIN_TX_AMOUNT_API = ''
     TX_PUSH_PARAM = ''
 
     @classmethod
@@ -32,6 +33,13 @@ class InsightAPI:
         if r.status_code != 200:  # pragma: no cover
             raise ConnectionError
         return r.json()['transactions']
+
+    @classmethod
+    def get_tx_amount(cls, txid, txindex):
+        endpoint = cls.MAIN_TX_AMOUNT_API
+
+        response = requests.get(endpoint.format(txid), timeout=DEFAULT_TIMEOUT).json()
+        return response['vout'][txindex]['value']*100000000
 
     @classmethod
     def get_unspent(cls, address):
@@ -59,6 +67,7 @@ class BitpayAPI(InsightAPI):
     MAIN_BALANCE_API = MAIN_ADDRESS_API + '{}/balance'
     MAIN_UNSPENT_API = MAIN_ADDRESS_API + '{}/utxo'
     MAIN_TX_PUSH_API = MAIN_ENDPOINT + 'tx/send'
+    MAIN_TX_AMOUNT_API = MAIN_ENDPOINT + 'tx'
     TEST_ENDPOINT = 'https://test-insight.bitpay.com/api/'
     TEST_ADDRESS_API = TEST_ENDPOINT + 'addr/'
     TEST_BALANCE_API = TEST_ADDRESS_API + '{}/balance'
@@ -104,6 +113,7 @@ class BlockchainAPI:
     ENDPOINT = 'https://blockchain.info/'
     ADDRESS_API = ENDPOINT + 'address/{}?format=json'
     UNSPENT_API = ENDPOINT + 'unspent?active='
+    TX_AMOUNT_API = ENDPOINT + 'rawtx/{}?format=json'
     TX_PUSH_API = ENDPOINT + 'pushtx'
     TX_PUSH_PARAM = 'tx'
 
@@ -139,6 +149,13 @@ class BlockchainAPI:
         return transactions
 
     @classmethod
+    def get_tx_amount(cls, txid, txindex):
+        endpoint = cls.TX_AMOUNT_API
+
+        response = requests.get(endpoint.format(txid), timeout=DEFAULT_TIMEOUT).json()
+        return response['out'][txindex]['value']
+
+    @classmethod
     def get_unspent(cls, address):
         r = requests.get(cls.UNSPENT_API + address, timeout=DEFAULT_TIMEOUT)
 
@@ -167,6 +184,7 @@ class SmartbitAPI:
     MAIN_ADDRESS_API = MAIN_ENDPOINT + 'address/'
     MAIN_UNSPENT_API = MAIN_ADDRESS_API + '{}/unspent'
     MAIN_TX_PUSH_API = MAIN_ENDPOINT + 'pushtx'
+    MAIN_TX_AMOUNT_API = MAIN_ENDPOINT + 'decodetx'
     TEST_ENDPOINT = 'https://testnet-api.smartbit.com.au/v1/blockchain/'
     TEST_ADDRESS_API = TEST_ENDPOINT + 'address/'
     TEST_UNSPENT_API = TEST_ADDRESS_API + '{}/unspent'
@@ -218,6 +236,13 @@ class SmartbitAPI:
         return transactions
 
     @classmethod
+    def get_tx_amount(cls, txid, txindex):
+        endpoint = cls.TX_AMOUNT_API
+
+        response = requests.get(endpoint.format(txid), timeout=DEFAULT_TIMEOUT).json()
+        return response['transaction']['Vout'][txindex]['Value']*100000000
+
+    @classmethod
     def get_unspent(cls, address):
         r = requests.get(cls.MAIN_UNSPENT_API.format(address) + '?limit=1000', timeout=DEFAULT_TIMEOUT)
         if r.status_code != 200:  # pragma: no cover
@@ -247,12 +272,12 @@ class SmartbitAPI:
 
     @classmethod
     def broadcast_tx(cls, tx_hex):  # pragma: no cover
-        r = requests.post(cls.MAIN_TX_PUSH_API, json={cls.TX_PUSH_PARAM: tx_hex}, timeout=DEFAULT_TIMEOUT)
+        r = requests.post(cls.MAIN_TX_PUSH_API, data={cls.TX_PUSH_PARAM: tx_hex}, timeout=DEFAULT_TIMEOUT)
         return True if r.status_code == 200 else False
 
     @classmethod
     def broadcast_tx_testnet(cls, tx_hex):  # pragma: no cover
-        r = requests.post(cls.TEST_TX_PUSH_API, json={cls.TX_PUSH_PARAM: tx_hex}, timeout=DEFAULT_TIMEOUT)
+        r = requests.post(cls.TEST_TX_PUSH_API, data={cls.TX_PUSH_PARAM: tx_hex}, timeout=DEFAULT_TIMEOUT)
         return True if r.status_code == 200 else False
 
 
@@ -263,17 +288,19 @@ class NetworkAPI:
                       requests.exceptions.ReadTimeout)
 
     GET_BALANCE_MAIN = [BitpayAPI.get_balance,
-                        SmartbitAPI.get_balance,
-                        BlockchainAPI.get_balance]
-    GET_TRANSACTIONS_MAIN = [BitpayAPI.get_transactions,  # Limit 1000
-                             SmartbitAPI.get_transactions,  # Limit 1000
-                             BlockchainAPI.get_transactions]  # No limit, requires multiple requests
+                        BlockchainAPI.get_balance,
+                        SmartbitAPI.get_balance]
+    GET_TRANSACTIONS_MAIN = [BlockchainAPI.get_transactions,  # No limit, requires multiple requests
+                             BitpayAPI.get_transactions,  # Limit 1000
+                             SmartbitAPI.get_transactions]  # Limit 1000
     GET_UNSPENT_MAIN = [BitpayAPI.get_unspent,  # No limit
                         SmartbitAPI.get_unspent,  # Limit 1000
                         BlockchainAPI.get_unspent]  # Limit 250
-    BROADCAST_TX_MAIN = [BitpayAPI.broadcast_tx,
-                         SmartbitAPI.broadcast_tx,  # Limit 5/minute
-                         BlockchainAPI.broadcast_tx]
+    BROADCAST_TX_MAIN = [BlockchainAPI.broadcast_tx,
+                         BitpayAPI.broadcast_tx,
+                         SmartbitAPI.broadcast_tx]  # Limit 5/minute
+    GET_TX_AMOUNT = [BlockchainAPI.get_tx_amount,
+                    SmartbitAPI.get_tx_amount]
 
     GET_BALANCE_TEST = [BitpayAPI.get_balance_testnet,
                         SmartbitAPI.get_balance_testnet]
@@ -352,6 +379,26 @@ class NetworkAPI:
         for api_call in cls.GET_TRANSACTIONS_TEST:
             try:
                 return api_call(address)
+            except cls.IGNORED_ERRORS:
+                pass
+
+        raise ConnectionError('All APIs are unreachable.')
+
+    @classmethod
+    def get_tx_amount(cls, txid, txindex):
+        """Gets the ID of all transactions related to an address.
+
+        :param txid: The transaction id in question.
+        :type txid: ``str``
+        :param txindex: The transaction index in question.
+        :type txindex: ``str``
+        :raises ConnectionError: If all API services fail.
+        :rtype: ``list`` of ``str``
+        """
+
+        for api_call in cls.GET_TX_AMOUNT:
+            try:
+                return api_call(txid, txindex)
             except cls.IGNORED_ERRORS:
                 pass
 

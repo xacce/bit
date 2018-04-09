@@ -1,14 +1,15 @@
 import json
 
-from bit.crypto import ECPrivateKey
+from bit.crypto import ECPrivateKey, ripemd160_sha256, sha256
 from bit.curve import Point
 from bit.format import (
     bytes_to_wif, public_key_to_address, public_key_to_coords, wif_to_bytes, address_to_public_key_hash, multisig_to_address, multisig_to_redeemscript,
+    public_key_to_segwit_address, multisig_to_segwit_address
 )
 from bit.network import NetworkAPI, get_fee_cached, satoshi_to_currency_cached
 from bit.network.meta import Unspent
 from bit.transaction import (
-    calc_txid, create_new_transaction, sanitize_tx_data, sign_legacy_tx,
+    calc_txid, create_new_transaction, sanitize_tx_data, sign_tx,
     OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_PUSH_20
     )
 
@@ -144,7 +145,9 @@ class PrivateKey(BaseKey):
         super().__init__(wif=wif)
 
         self._address = None
+        self._sw_address = None
         self._scriptcode = None
+        self._sw_scriptcode = None
 
         self.balance = 0
         self.unspents = []
@@ -160,11 +163,26 @@ class PrivateKey(BaseKey):
         return self._address
 
     @property
+    def sw_address(self):
+        """The public segwit nested in P2SH address you share with others to receive funds."""
+        if self._sw_address is None and self.is_compressed():  # Only make segwit address if public key is compressed
+                                                               # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                               #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
+            self._sw_address = public_key_to_segwit_address(self._public_key, version='main')
+        return self._sw_address
+
+    @property
     def scriptcode(self):
         self._scriptcode = (OP_DUP + OP_HASH160 + OP_PUSH_20 +
                             address_to_public_key_hash(self.address) +
                             OP_EQUALVERIFY + OP_CHECKSIG)
         return self._scriptcode
+
+    @property
+    def sw_scriptcode(self):
+        self._sw_scriptcode = (b'\x00' + b'\x14' +
+                               ripemd160_sha256(self.public_key))
+        return self._sw_scriptcode
 
     def to_wif(self):
         return bytes_to_wif(
@@ -200,6 +218,11 @@ class PrivateKey(BaseKey):
         :rtype: ``list`` of :class:`~bit.network.meta.Unspent`
         """
         self.unspents[:] = NetworkAPI.get_unspent(self.address)
+        if self.is_compressed():  # Only check segwit balance if public key is compressed
+            sw_unspents = NetworkAPI.get_unspent(self.sw_address)
+            for u in sw_unspents:
+                u.segwit = True
+            self.unspents += sw_unspents  # Adds Segwit UTXO
         self.balance = sum(unspent.amount for unspent in self.unspents)
         return self.unspents
 
@@ -209,6 +232,8 @@ class PrivateKey(BaseKey):
         :rtype: ``list`` of ``str`` transaction IDs
         """
         self.transactions[:] = NetworkAPI.get_transactions(self.address)
+        if self.is_compressed():  # Only check segwit transactions if public key is compressed
+            self.transactions += NetworkAPI.get_transactions(self.sw_address)
         return self.transactions
 
     def create_transaction(self, outputs, fee=None, leftover=None, combine=True,
@@ -222,7 +247,7 @@ class PrivateKey(BaseKey):
                         must be :ref:`supported <supported currencies>`.
         :type outputs: ``list`` of ``tuple``
         :param fee: The number of satoshi per byte to pay to miners. By default
-                    Bit will poll `<https://bitcoinfees.earn.com>`_ and use a fee
+                    Bit will poll `<https://bitcoinfees.21.co>`_ and use a fee
                     that will allow your transaction to be confirmed as soon as
                     possible.
         :type fee: ``int``
@@ -270,7 +295,7 @@ class PrivateKey(BaseKey):
                         must be :ref:`supported <supported currencies>`.
         :type outputs: ``list`` of ``tuple``
         :param fee: The number of satoshi per byte to pay to miners. By default
-                    Bit will poll `<https://bitcoinfees.earn.com>`_ and use a fee
+                    Bit will poll `<https://bitcoinfees.21.co>`_ and use a fee
                     that will allow your transaction to be confirmed as soon as
                     possible.
         :type fee: ``int``
@@ -318,7 +343,7 @@ class PrivateKey(BaseKey):
                            compressed public key. This influences the fee.
         :type compressed: ``bool``
         :param fee: The number of satoshi per byte to pay to miners. By default
-                    Bit will poll `<https://bitcoinfees.earn.com>`_ and use a fee
+                    Bit will poll `<https://bitcoinfees.21.co>`_ and use a fee
                     that will allow your transaction to be confirmed as soon as
                     possible.
         :type fee: ``int``
@@ -438,6 +463,9 @@ class PrivateKeyTestnet(BaseKey):
         super().__init__(wif=wif)
 
         self._address = None
+        self._sw_address = None
+        self._scriptcode = None
+        self._sw_scriptcode = None
 
         self.balance = 0
         self.unspents = []
@@ -453,11 +481,26 @@ class PrivateKeyTestnet(BaseKey):
         return self._address
 
     @property
+    def sw_address(self):
+        """The public segwit nested in P2SH address you share with others to receive funds."""
+        if self._sw_address is None and self.is_compressed():  # Only make segwit address if public key is compressed
+                                                               # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                               #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
+            self._sw_address = public_key_to_segwit_address(self._public_key, version='test')
+        return self._sw_address
+
+    @property
     def scriptcode(self):
         self._scriptcode = (OP_DUP + OP_HASH160 + OP_PUSH_20 +
                             address_to_public_key_hash(self.address) +
                             OP_EQUALVERIFY + OP_CHECKSIG)
         return self._scriptcode
+
+    @property
+    def sw_scriptcode(self):
+        self._sw_scriptcode = (b'\x00' + b'\x14' +
+                               ripemd160_sha256(self.public_key))
+        return self._sw_scriptcode
 
     def to_wif(self):
         return bytes_to_wif(
@@ -493,6 +536,11 @@ class PrivateKeyTestnet(BaseKey):
         :rtype: ``list`` of :class:`~bit.network.meta.Unspent`
         """
         self.unspents[:] = NetworkAPI.get_unspent_testnet(self.address)
+        if self.is_compressed():  # Only check segwit unspents if public key is compressed
+            sw_unspents = NetworkAPI.get_unspent_testnet(self.sw_address)
+            for u in sw_unspents:
+                u.segwit = True
+            self.unspents += sw_unspents  # Add Segwit UTXO
         self.balance = sum(unspent.amount for unspent in self.unspents)
         return self.unspents
 
@@ -502,6 +550,8 @@ class PrivateKeyTestnet(BaseKey):
         :rtype: ``list`` of ``str`` transaction IDs
         """
         self.transactions[:] = NetworkAPI.get_transactions_testnet(self.address)
+        if self.is_compressed():  # Only check segwit transactions if public key is compressed
+            self.transactions += NetworkAPI.get_transactions_testnet(self.sw_address)
         return self.transactions
 
     def create_transaction(self, outputs, fee=None, leftover=None, combine=True,
@@ -515,7 +565,7 @@ class PrivateKeyTestnet(BaseKey):
                         must be :ref:`supported <supported currencies>`.
         :type outputs: ``list`` of ``tuple``
         :param fee: The number of satoshi per byte to pay to miners. By default
-                    Bit will poll `<https://bitcoinfees.earn.com>`_ and use a fee
+                    Bit will poll `<https://bitcoinfees.21.co>`_ and use a fee
                     that will allow your transaction to be confirmed as soon as
                     possible.
         :type fee: ``int``
@@ -563,7 +613,7 @@ class PrivateKeyTestnet(BaseKey):
                         must be :ref:`supported <supported currencies>`.
         :type outputs: ``list`` of ``tuple``
         :param fee: The number of satoshi per byte to pay to miners. By default
-                    Bit will poll `<https://bitcoinfees.earn.com>`_ and use a fee
+                    Bit will poll `<https://bitcoinfees.21.co>`_ and use a fee
                     that will allow your transaction to be confirmed as soon as
                     possible.
         :type fee: ``int``
@@ -611,7 +661,7 @@ class PrivateKeyTestnet(BaseKey):
                            compressed public key. This influences the fee.
         :type compressed: ``bool``
         :param fee: The number of satoshi per byte to pay to miners. By default
-                    Bit will poll `<https://bitcoinfees.earn.com>`_ and use a fee
+                    Bit will poll `<https://bitcoinfees.21.co>`_ and use a fee
                     that will allow your transaction to be confirmed as soon as
                     possible.
         :type fee: ``int``
@@ -743,7 +793,9 @@ class MultiSig:
 
         self.version = 'main'
         self._address = None
+        self._sw_address = None
         self._scriptcode = None
+        self._sw_scriptcode = None
 
         self.balance = 0
         self.unspents = []
@@ -758,6 +810,7 @@ class MultiSig:
             self.public_keys = public_keys
             self.m = m
             self.redeemscript = multisig_to_redeemscript(public_keys, self.m)
+            self.is_compressed = all(len(p) == 33 for p in public_keys)
 
     @property
     def address(self):
@@ -767,9 +820,24 @@ class MultiSig:
         return self._address
 
     @property
+    def sw_address(self):
+        """The public segwit nested in P2SH address you share with others to receive funds."""
+        if self._sw_address is None and self.is_compressed is True:  # Only make segwit-address if all public keys are compressed
+                                                                     # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                                     #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
+            self._sw_address = multisig_to_segwit_address(self.public_keys, self.m, version='main')
+        return self._sw_address
+
+    @property
     def scriptcode(self):
         self._scriptcode = self.redeemscript
         return self._scriptcode
+
+    @property
+    def sw_scriptcode(self):
+        self._sw_scriptcode = (b'\x00' + b'\x20' +
+                               sha256(self.redeemscript))
+        return self._sw_scriptcode
 
     def sign(self, data):
         """Signs some data which can be verified later by others using
@@ -808,10 +876,11 @@ class MultiSig:
 
         :rtype: ``list`` of :class:`~bit.network.meta.Unspent`
         """
-        if self.version == 'test':
-            self.unspents[:] = NetworkAPI.get_unspent_testnet(self.address)
-        else:
-            self.unspents[:] = NetworkAPI.get_unspent(self.address)
+        sw_unspents = NetworkAPI.get_unspent(self.sw_address)
+        for u in sw_unspents:
+            u.segwit = True
+        self.unspents[:] = NetworkAPI.get_unspent(self.address)
+        self.unspents += sw_unspents  # Add Segwit UTXO
         self.balance = sum(unspent.amount for unspent in self.unspents)
         return self.unspents
 
@@ -820,10 +889,8 @@ class MultiSig:
 
         :rtype: ``list`` of ``str`` transaction IDs
         """
-        if self.version == 'test':
-            self.transactions[:] = NetworkAPI.get_transactions_testnet(self.address)
-        else:
-            self.transactions[:] = NetworkAPI.get_transactions(self.address)
+        self.transactions[:] = NetworkAPI.get_transactions(self.address)
+        self.transactions += NetworkAPI.get_transactions(self.sw_address)
         return self.transactions
 
     def create_transaction(self, outputs, fee=None, leftover=None, combine=True,
@@ -989,7 +1056,7 @@ class MultiSig:
 
             return create_new_transaction(self, unspents, outputs)
         else:  # May be partially-signed multisig transaction:
-            return sign_legacy_tx(self, tx_data)
+            return sign_tx(self, tx_data)
 
 
 class MultiSigTestnet:
@@ -1018,7 +1085,9 @@ class MultiSigTestnet:
 
         self.version = 'test'
         self._address = None
+        self._sw_address = None
         self._scriptcode = None
+        self._sw_scriptcode = None
 
         self.balance = 0
         self.unspents = []
@@ -1033,18 +1102,34 @@ class MultiSigTestnet:
             self.public_keys = public_keys
             self.m = m
             self.redeemscript = multisig_to_redeemscript(public_keys, self.m)
+            self.is_compressed = all(len(p) == 33 for p in public_keys)
 
     @property
     def address(self):
         """The public address you share with others to receive funds."""
-        if self._address is None:
+        if self._address is None and self.is_compressed is True:
             self._address = multisig_to_address(self.public_keys, self.m, version=self.version)
         return self._address
+
+    @property
+    def sw_address(self):
+        """The public segwit nested in P2SH address you share with others to receive funds."""
+        if self._sw_address is None and self.is_compressed is True:  # Only make segwit-address if all public keys are compressed
+                                                                     # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                                     #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
+            self._sw_address = multisig_to_segwit_address(self.public_keys, self.m, version='test')
+        return self._sw_address
 
     @property
     def scriptcode(self):
         self._scriptcode = self.redeemscript
         return self._scriptcode
+
+    @property
+    def sw_scriptcode(self):
+        self._sw_scriptcode = (b'\x00' + b'\x20' +
+                               sha256(self.redeemscript))
+        return self._sw_scriptcode
 
     def sign(self, data):
         """Signs some data which can be verified later by others using
@@ -1083,10 +1168,11 @@ class MultiSigTestnet:
 
         :rtype: ``list`` of :class:`~bit.network.meta.Unspent`
         """
-        if self.version == 'test':
-            self.unspents[:] = NetworkAPI.get_unspent_testnet(self.address)
-        else:
-            self.unspents[:] = NetworkAPI.get_unspent(self.address)
+        sw_unspents = NetworkAPI.get_unspent_testnet(self.sw_address)
+        for u in sw_unspents:
+            u.segwit = True
+        self.unspents[:] = NetworkAPI.get_unspent_testnet(self.address)
+        self.unspents += sw_unspents  # Add Segwit UTXO
         self.balance = sum(unspent.amount for unspent in self.unspents)
         return self.unspents
 
@@ -1095,10 +1181,8 @@ class MultiSigTestnet:
 
         :rtype: ``list`` of ``str`` transaction IDs
         """
-        if self.version == 'test':
-            self.transactions[:] = NetworkAPI.get_transactions_testnet(self.address)
-        else:
-            self.transactions[:] = NetworkAPI.get_transactions(self.address)
+        self.transactions[:] = NetworkAPI.get_transactions_testnet(self.address)
+        self.transactions += NetworkAPI.get_transactions_testnet(self.sw_address)
         return self.transactions
 
     def create_transaction(self, outputs, fee=None, leftover=None, combine=True,
@@ -1264,4 +1348,4 @@ class MultiSigTestnet:
 
             return create_new_transaction(self, unspents, outputs)
         else:  # May be partially-signed multisig tx:
-            return sign_legacy_tx(self, tx_data)
+            return sign_tx(self, tx_data)

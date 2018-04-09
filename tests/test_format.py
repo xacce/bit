@@ -8,7 +8,8 @@ from bit.format import (
 from .samples import (
     BITCOIN_ADDRESS, BITCOIN_ADDRESS_COMPRESSED, BITCOIN_ADDRESS_PAY2SH,
     BITCOIN_ADDRESS_TEST_COMPRESSED, BITCOIN_ADDRESS_TEST,
-    BITCOIN_ADDRESS_TEST_PAY2SH, PRIVATE_KEY_BYTES, PUBKEY_HASH,
+    BITCOIN_ADDRESS_TEST_PAY2SH, BITCOIN_HASH_PAY2SH, BITCOIN_HASH_TEST_PAY2SH,
+    PRIVATE_KEY_BYTES, PUBKEY_HASH,
     PUBKEY_HASH_COMPRESSED, PUBLIC_KEY_COMPRESSED, PUBLIC_KEY_UNCOMPRESSED,
     PUBLIC_KEY_X, PUBLIC_KEY_Y,
     WALLET_FORMAT_COMPRESSED_MAIN, WALLET_FORMAT_COMPRESSED_TEST,
@@ -42,14 +43,6 @@ class TestGetVersion:
     def test_invalid(self):
         with pytest.raises(ValueError):
             get_version('dg2dNAjuezub6iJVPNML5pW5ZQvtA9ocL')
-
-    def test_mainnet_pay2sh(self):
-        with pytest.raises(ValueError):
-            get_version(BITCOIN_ADDRESS_PAY2SH)
-
-    def test_testnet_pay2sh(self):
-        with pytest.raises(ValueError):
-            get_version(BITCOIN_ADDRESS_TEST_PAY2SH)
 
 
 class TestVerifySig:
@@ -156,7 +149,5 @@ def test_point_to_public_key():
 def test_address_to_public_key_hash():
     assert address_to_public_key_hash(BITCOIN_ADDRESS) == PUBKEY_HASH
     assert address_to_public_key_hash(BITCOIN_ADDRESS_COMPRESSED) == PUBKEY_HASH_COMPRESSED
-    with pytest.raises(ValueError):
-        address_to_public_key_hash(BITCOIN_ADDRESS_PAY2SH)
-    with pytest.raises(ValueError):
-        address_to_public_key_hash(BITCOIN_ADDRESS_TEST_PAY2SH)
+    assert address_to_public_key_hash(BITCOIN_ADDRESS_PAY2SH) == bytes.fromhex(BITCOIN_HASH_PAY2SH)
+    assert address_to_public_key_hash(BITCOIN_ADDRESS_TEST_PAY2SH) == bytes.fromhex(BITCOIN_HASH_TEST_PAY2SH)

@@ -30,7 +30,6 @@ INPUTS = [
          b"hu\xa7\x1a]\xb6L\xff\xcb\x139k\x16=\x03\x9b\x1d\x93'\x82H\x91\x80C4v"
          b"\xa45**\xdd\x00\xeb\xb0\xd5\xc9LQ[r\xeb\x10\xf1\xfd\x8f?\x03\xb4/J+%["
          b"\xfc\x9a\xa9\xe3"),
-#        b'\x8a',
         (b"\x88x9\x9d\x83\xec%\xc6'\xcf\xbfu?\xf9\xca6\x027>"
          b"\xacCz\xb2gaT\xa3\xc2\xda#\xad\xf3"),
         b'\x01\x00\x00\x00'
@@ -84,7 +83,7 @@ class TestTxIn:
         assert txin1 != txin3
 
     def test_repr(self):
-        txin = TxIn(b'script', b'txid', b'\x04', b'\xff\xff\xff\xff')
+        txin = TxIn(b'script', b'txid', b'\x04', sequence=b'\xff\xff\xff\xff')
 
         assert repr(txin) == "TxIn(b'script', {}, b'txid', {}, {})" \
                              "".format(repr(b'\x06'), repr(b'\x04'), repr(b'\xff\xff\xff\xff'))
@@ -174,48 +173,6 @@ class TestSanitizeTxData:
         assert outputs[1][0] == RETURN_ADDRESS
         assert outputs[1][1] == 1000
 
-    def test_no_combine_remaining_small_inputs(self):
-        unspents_original = [Unspent(1500, 0, '', '', 0),
-                             Unspent(1600, 0, '', '', 0),
-                             Unspent(1700, 0, '', '', 0)]
-        outputs_original = [(RETURN_ADDRESS, 2000, 'satoshi')]
-
-        unspents, outputs = sanitize_tx_data(
-            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS,
-            combine=False, message=None
-        )
-        assert unspents == [Unspent(1500, 0, '', '', 0), Unspent(1600, 0, '', '', 0)]
-        assert len(outputs) == 2
-        assert outputs[1][0] == RETURN_ADDRESS
-        assert outputs[1][1] == 1100
-
-    def test_no_combine_with_fee(self):
-        """
-        Verify that unused unspents do not increase fee.
-        """
-        unspents_single = [Unspent(5000, 0, '', '', 0)]
-        unspents_original = [Unspent(5000, 0, '', '', 0),
-                             Unspent(5000, 0, '', '', 0)]
-        outputs_original = [(RETURN_ADDRESS, 1000, 'satoshi')]
-
-        unspents, outputs = sanitize_tx_data(
-            unspents_original, outputs_original, fee=1, leftover=RETURN_ADDRESS,
-            combine=False, message=None
-        )
-
-        unspents_single, outputs_single = sanitize_tx_data(
-            unspents_single, outputs_original, fee=1, leftover=RETURN_ADDRESS,
-            combine=False, message=None
-        )
-
-        assert unspents == [Unspent(5000, 0, '', '', 0)]
-        assert unspents_single == [Unspent(5000, 0, '', '', 0)]
-        assert len(outputs) == 2
-        assert len(outputs_single) == 2
-        assert outputs[1][0] == RETURN_ADDRESS
-        assert outputs_single[1][0] == RETURN_ADDRESS
-        assert outputs[1][1] == outputs_single[1][1]
-
     def test_no_combine_insufficient_funds(self):
         unspents_original = [Unspent(1000, 0, '', '', 0),
                              Unspent(1000, 0, '', '', 0)]
@@ -269,6 +226,21 @@ class TestConstructOutputBlock:
         outs = construct_outputs(outputs)
         assert len(outs) == 5 and outs[3].value == amount and outs[4].value == amount
 
+    def test_outputs_pay2sh(self):
+        amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
+        _, outputs = sanitize_tx_data(
+            UNSPENTS, [('39SrGQEfFXcTYJhBvjZeQja66Cpz82EEUn', 1, 'satoshi')], 0, RETURN_ADDRESS
+        )
+        outs = construct_outputs(outputs)
+        assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a91455131efb7a0edd4c76cc3bbe833bfc59a6f73c6b87'
+
+    def test_outputs_pay2sh_testnet(self):
+        amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
+        _, outputs = sanitize_tx_data(
+            UNSPENTS, [('2NFKbBHzzh32q5DcZJNgZE9sF7gYmtPbawk', 1, 'satoshi')], 0, RETURN_ADDRESS
+        )
+        outs = construct_outputs(outputs)
+        assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a914f2261e9564c9dfffa81505c153fb95bf9399430887'
 
 def test_construct_input_block():
     assert construct_input_block(INPUTS) == hex_to_bytes(INPUT_BLOCK)
