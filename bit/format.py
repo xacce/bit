@@ -37,15 +37,17 @@ def verify_sig(signature, data, public_key):
 
 
 def address_to_public_key_hash(address):
+    # Raise ValueError if we cannot identify the address.
+    get_version(address)
     return b58decode_check(address)[1:]
 
 
 def get_version(address):
     version = b58decode_check(address)[:1]
 
-    if version == MAIN_PUBKEY_HASH:
+    if version == MAIN_PUBKEY_HASH or version == MAIN_SCRIPT_HASH:
         return 'main'
-    elif version == TEST_PUBKEY_HASH:
+    elif version == TEST_PUBKEY_HASH or version == TEST_SCRIPT_HASH:
         return 'test'
     else:
         raise ValueError('{} does not correspond to a mainnet nor '
