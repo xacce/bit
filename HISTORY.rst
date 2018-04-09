@@ -1,8 +1,9 @@
 Release History
 ===============
 
-Unreleased (see `master <https://github.com/ofek/bit>`_)
+Unreleased (see `master <https://github.com/bjarnemagnussen/bit>`_)
 --------------------------------------------------------
+(2018-04-09) Updated to correspond to Bit 0.4.3, but with added functionality to support P2SH-multisig and Segwit.
 
 0.4.3 (2018-03-11)
 ------------------
