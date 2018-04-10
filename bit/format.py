@@ -43,7 +43,10 @@ def address_to_public_key_hash(address):
 
 
 def get_version(address):
-    version = b58decode_check(address)[:1]
+    segwit_versions = {'bc': MAIN_PUBKEY_HASH, 'tb': TEST_PUBKEY_HASH}
+    version = segwit_versions.get(address[0:2])
+    if not version:
+        version = b58decode_check(address)[:1]
 
     if version == MAIN_PUBKEY_HASH or version == MAIN_SCRIPT_HASH:
         return 'main'
@@ -179,6 +182,11 @@ def multisig_to_segwit_address(public_keys, m, version='main'):
         version = MAIN_SCRIPT_HASH
 
     return b58encode_check(version + ripemd160_sha256(b'\x00\x20' + sha256(multisig_to_redeemscript(public_keys, m))))
+
+
+def segwit_scriptpubkey(witver, witprog):
+    """Construct a Segwit scriptPubKey for a given witness program."""
+    return bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
 
 
 def public_key_to_coords(public_key):

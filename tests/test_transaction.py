@@ -284,6 +284,24 @@ class TestConstructOutputBlock:
         outs = construct_outputs(outputs)
         assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a914f2261e9564c9dfffa81505c153fb95bf9399430887'
 
+    def test_outputs_pay2segwit(self):
+        amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
+        _, outputs = sanitize_tx_data(
+            UNSPENTS, [('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', 1, 'satoshi'), ('bc1qc7slrfxkknqcq2jevvvkdgvrt8080852dfjewde450xdlk4ugp7szw5tk9', 1, 'satoshi')], 0, RETURN_ADDRESS
+        )
+        outs = construct_outputs(outputs)
+        assert len(outs) == 3 and outs[0].value == amount and outs[0].script.hex() == '0014e8df018c7e326cc253faac7e46cdc51e68542c42'
+        assert outs[1].value == amount and outs[1].script.hex() == '0020c7a1f1a4d6b4c1802a59631966a18359de779e8a6a65973735a3ccdfdabc407d'
+
+    def test_outputs_pay2segwit_testnet(self):
+        amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
+        _, outputs = sanitize_tx_data(
+            UNSPENTS, [('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 1, 'satoshi'), ('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', 1, 'satoshi')], 0, RETURN_ADDRESS
+        )
+        outs = construct_outputs(outputs)
+        assert len(outs) == 3 and outs[0].value == amount and outs[0].script.hex() == '0014751e76e8199196d454941c45d1b3a323f1433bd6'
+        assert outs[1].value == amount and outs[1].script.hex() == '00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262'
+
 def test_construct_input_block():
     assert construct_input_block(INPUTS) == hex_to_bytes(INPUT_BLOCK)
 

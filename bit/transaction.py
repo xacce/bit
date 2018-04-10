@@ -5,7 +5,7 @@ import re
 
 from bit.crypto import double_sha256, sha256
 from bit.exceptions import InsufficientFunds
-from bit.format import address_to_public_key_hash, TEST_SCRIPT_HASH, MAIN_SCRIPT_HASH
+from bit.format import address_to_public_key_hash, segwit_scriptpubkey, TEST_SCRIPT_HASH, MAIN_SCRIPT_HASH
 from bit.network import NetworkAPI
 from bit.network.rates import currency_to_satoshi_cached
 from bit.utils import (
@@ -14,6 +14,7 @@ from bit.utils import (
 
 from bit.format import verify_sig
 from bit.base58 import b58decode_check
+from bit.base32 import decode as segwit_decode
 
 VERSION_1 = 0x01.to_bytes(4, byteorder='little')
 SEQUENCE = 0xffffffff.to_bytes(4, byteorder='little')
@@ -330,9 +331,16 @@ def construct_outputs(outputs):
     for data in outputs:
         dest, amount = data
 
-        # Future-TODO: Add BIP-173 bech32 SegWit addresses.
+        # Segwit address (Bech32)
+        if amount and (dest[0:2] == 'bc' or dest[0:2] == 'tb'):
+            hrp = dest[0:2]
+            witver, witprog = segwit_decode(hrp, dest)
+
+            script = segwit_scriptpubkey(witver, witprog)
+            amount = amount.to_bytes(8, byteorder='little')
+
         # P2SH
-        if amount and (b58decode_check(dest)[0:1] == MAIN_SCRIPT_HASH or
+        elif amount and (b58decode_check(dest)[0:1] == MAIN_SCRIPT_HASH or
                        b58decode_check(dest)[0:1] == TEST_SCRIPT_HASH):
             script = (OP_HASH160 + OP_PUSH_20 +
                       address_to_public_key_hash(dest) +
