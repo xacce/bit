@@ -153,6 +153,7 @@ class PrivateKey(BaseKey):
         self.unspents = []
         self.transactions = []
 
+        self.version = 'main'
         self.instance = 'PrivateKey'
 
     @property
@@ -277,7 +278,8 @@ class PrivateKey(BaseKey):
             leftover or self.address,
             combine=combine,
             message=message,
-            compressed=self.is_compressed()
+            compressed=self.is_compressed(),
+            version='main'
         )
 
         return create_new_transaction(self, unspents, outputs)
@@ -372,7 +374,8 @@ class PrivateKey(BaseKey):
             leftover or address,
             combine=combine,
             message=message,
-            compressed=compressed
+            compressed=compressed,
+            version='main'
         )
 
         data = {
@@ -471,6 +474,7 @@ class PrivateKeyTestnet(BaseKey):
         self.unspents = []
         self.transactions = []
 
+        self.version = 'test'
         self.instance = 'PrivateKeyTestnet'
 
     @property
@@ -595,7 +599,8 @@ class PrivateKeyTestnet(BaseKey):
             leftover or self.address,
             combine=combine,
             message=message,
-            compressed=self.is_compressed()
+            compressed=self.is_compressed(),
+            version='test'
         )
 
         return create_new_transaction(self, unspents, outputs)
@@ -690,7 +695,8 @@ class PrivateKeyTestnet(BaseKey):
             leftover or address,
             combine=combine,
             message=message,
-            compressed=compressed
+            compressed=compressed,
+            version='test'
         )
 
         data = {
@@ -934,7 +940,8 @@ class MultiSig:
             leftover or self.address,
             combine=combine,
             message=message,
-            compressed=self._pk.is_compressed()
+            compressed=self._pk.is_compressed(),
+            version='main'
         )
 
         return create_new_transaction(self, unspents, outputs)
@@ -1029,7 +1036,8 @@ class MultiSig:
             leftover or address,
             combine=combine,
             message=message,
-            compressed=compressed
+            compressed=compressed,
+            version='main'
         )
 
         data = {
@@ -1226,7 +1234,8 @@ class MultiSigTestnet:
             leftover or self.address,
             combine=combine,
             message=message,
-            compressed=self._pk.is_compressed()
+            compressed=self._pk.is_compressed(),
+            version='test'
         )
 
         return create_new_transaction(self, unspents, outputs)
@@ -1321,7 +1330,8 @@ class MultiSigTestnet:
             leftover or address,
             combine=combine,
             message=message,
-            compressed=compressed
+            compressed=compressed,
+            version='test'
         )
 
         data = {

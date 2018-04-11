@@ -8,10 +8,15 @@ from bit.transaction import (
 )
 from bit.utils import hex_to_bytes
 from bit.wallet import PrivateKey
-from .samples import WALLET_FORMAT_MAIN
+from .samples import (
+    WALLET_FORMAT_MAIN, BITCOIN_ADDRESS, BITCOIN_ADDRESS_PAY2SH, BITCOIN_ADDRESS_TEST_PAY2SH, BITCOIN_HASH_PAY2SH, BITCOIN_HASH_TEST_PAY2SH,
+    BITCOIN_SEGWIT_ADDRESS, BITCOIN_SEGWIT_ADDRESS_PAY2SH, BITCOIN_SEGWIT_HASH, BITCOIN_SEGWIT_HASH_PAY2SH,
+    BITCOIN_SEGWIT_ADDRESS_TEST, BItCOIN_SEGWIT_ADDRESS_TEST_PAY2SH, BITCOIN_SEGWIT_HASH_TEST, BITCOIN_SEGWIT_HASH_TEST_PAY2SH
+)
 
 
-RETURN_ADDRESS = 'n2eMqTT929pb1RDNuqEnxdaLau1rxy3efi'
+RETURN_ADDRESS_MAIN = '1ELReFsTCUY2mfaDTy32qxYiT49z786eFg'
+RETURN_ADDRESS_TEST = 'n2eMqTT929pb1RDNuqEnxdaLau1rxy3efi'
 
 FINAL_TX_1 = ('01000000018878399d83ec25c627cfbf753ff9ca3602373eac437ab2676154a3c2'
               'da23adf3010000008a473044022068b8dce776ef1c071f4c516836cdfb358e44ef'
@@ -97,10 +102,10 @@ class TestSanitizeTxData:
     def test_message(self):
         unspents_original = [Unspent(10000, 0, '', '', 0),
                              Unspent(10000, 0, '', '', 0)]
-        outputs_original = [('test', 1000, 'satoshi')]
+        outputs_original = [(BITCOIN_ADDRESS, 1000, 'satoshi')]
 
         unspents, outputs = sanitize_tx_data(
-            unspents_original, outputs_original, fee=5, leftover=RETURN_ADDRESS,
+            unspents_original, outputs_original, fee=5, leftover=RETURN_ADDRESS_MAIN,
             combine=True, message='hello'
         )
 
@@ -111,81 +116,81 @@ class TestSanitizeTxData:
     def test_fee_applied(self):
         unspents_original = [Unspent(1000, 0, '', '', 0),
                              Unspent(1000, 0, '', '', 0)]
-        outputs_original = [('test', 2000, 'satoshi')]
+        outputs_original = [(BITCOIN_ADDRESS, 2000, 'satoshi')]
 
         with pytest.raises(InsufficientFunds):
             sanitize_tx_data(
-                unspents_original, outputs_original, fee=1, leftover=RETURN_ADDRESS,
+                unspents_original, outputs_original, fee=1, leftover=RETURN_ADDRESS_MAIN,
                 combine=True, message=None
             )
 
     def test_zero_remaining(self):
         unspents_original = [Unspent(1000, 0, '', '', 0),
                              Unspent(1000, 0, '', '', 0)]
-        outputs_original = [('test', 2000, 'satoshi')]
+        outputs_original = [(BITCOIN_ADDRESS, 2000, 'satoshi')]
 
         unspents, outputs = sanitize_tx_data(
-            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS,
+            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS_MAIN,
             combine=True, message=None
         )
 
         assert unspents == unspents_original
-        assert outputs == [('test', 2000)]
+        assert outputs == [(BITCOIN_ADDRESS, 2000)]
 
     def test_combine_remaining(self):
         unspents_original = [Unspent(1000, 0, '', '', 0),
                              Unspent(1000, 0, '', '', 0)]
-        outputs_original = [('test', 500, 'satoshi')]
+        outputs_original = [(BITCOIN_ADDRESS, 500, 'satoshi')]
 
         unspents, outputs = sanitize_tx_data(
-            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS,
+            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS_MAIN,
             combine=True, message=None
         )
 
         assert unspents == unspents_original
         assert len(outputs) == 2
-        assert outputs[1][0] == RETURN_ADDRESS
+        assert outputs[1][0] == RETURN_ADDRESS_MAIN
         assert outputs[1][1] == 1500
 
     def test_combine_insufficient_funds(self):
         unspents_original = [Unspent(1000, 0, '', '', 0),
                              Unspent(1000, 0, '', '', 0)]
-        outputs_original = [('test', 2500, 'satoshi')]
+        outputs_original = [(BITCOIN_ADDRESS, 2500, 'satoshi')]
 
         with pytest.raises(InsufficientFunds):
             sanitize_tx_data(
-                unspents_original, outputs_original, fee=50, leftover=RETURN_ADDRESS,
+                unspents_original, outputs_original, fee=50, leftover=RETURN_ADDRESS_MAIN,
                 combine=True, message=None
             )
 
     def test_no_combine_remaining(self):
         unspents_original = [Unspent(7000, 0, '', '', 0),
                              Unspent(3000, 0, '', '', 0)]
-        outputs_original = [('test', 2000, 'satoshi')]
+        outputs_original = [(BITCOIN_ADDRESS, 2000, 'satoshi')]
 
         unspents, outputs = sanitize_tx_data(
-            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS,
+            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS_MAIN,
             combine=False, message=None
         )
 
         assert unspents == [Unspent(3000, 0, '', '', 0)]
         assert len(outputs) == 2
-        assert outputs[1][0] == RETURN_ADDRESS
+        assert outputs[1][0] == RETURN_ADDRESS_MAIN
         assert outputs[1][1] == 1000
 
     def test_no_combine_remaining_small_inputs(self):
         unspents_original = [Unspent(1500, 0, '', '', 0),
                              Unspent(1600, 0, '', '', 0),
                              Unspent(1700, 0, '', '', 0)]
-        outputs_original = [(RETURN_ADDRESS, 2000, 'satoshi')]
+        outputs_original = [(RETURN_ADDRESS_MAIN, 2000, 'satoshi')]
 
         unspents, outputs = sanitize_tx_data(
-            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS,
+            unspents_original, outputs_original, fee=0, leftover=RETURN_ADDRESS_MAIN,
             combine=False, message=None
         )
         assert unspents == [Unspent(1500, 0, '', '', 0), Unspent(1600, 0, '', '', 0)]
         assert len(outputs) == 2
-        assert outputs[1][0] == RETURN_ADDRESS
+        assert outputs[1][0] == RETURN_ADDRESS_MAIN
         assert outputs[1][1] == 1100
 
     def test_no_combine_with_fee(self):
@@ -195,15 +200,15 @@ class TestSanitizeTxData:
         unspents_single = [Unspent(5000, 0, '', '', 0)]
         unspents_original = [Unspent(5000, 0, '', '', 0),
                              Unspent(5000, 0, '', '', 0)]
-        outputs_original = [(RETURN_ADDRESS, 1000, 'satoshi')]
+        outputs_original = [(RETURN_ADDRESS_MAIN, 1000, 'satoshi')]
 
         unspents, outputs = sanitize_tx_data(
-            unspents_original, outputs_original, fee=1, leftover=RETURN_ADDRESS,
+            unspents_original, outputs_original, fee=1, leftover=RETURN_ADDRESS_MAIN,
             combine=False, message=None
         )
 
         unspents_single, outputs_single = sanitize_tx_data(
-            unspents_single, outputs_original, fee=1, leftover=RETURN_ADDRESS,
+            unspents_single, outputs_original, fee=1, leftover=RETURN_ADDRESS_MAIN,
             combine=False, message=None
         )
 
@@ -211,18 +216,18 @@ class TestSanitizeTxData:
         assert unspents_single == [Unspent(5000, 0, '', '', 0)]
         assert len(outputs) == 2
         assert len(outputs_single) == 2
-        assert outputs[1][0] == RETURN_ADDRESS
-        assert outputs_single[1][0] == RETURN_ADDRESS
+        assert outputs[1][0] == RETURN_ADDRESS_MAIN
+        assert outputs_single[1][0] == RETURN_ADDRESS_MAIN
         assert outputs[1][1] == outputs_single[1][1]
 
     def test_no_combine_insufficient_funds(self):
         unspents_original = [Unspent(1000, 0, '', '', 0),
                              Unspent(1000, 0, '', '', 0)]
-        outputs_original = [('test', 2500, 'satoshi')]
+        outputs_original = [(BITCOIN_ADDRESS, 2500, 'satoshi')]
 
         with pytest.raises(InsufficientFunds):
             sanitize_tx_data(
-                unspents_original, outputs_original, fee=50, leftover=RETURN_ADDRESS,
+                unspents_original, outputs_original, fee=50, leftover=RETURN_ADDRESS_MAIN,
                 combine=False, message=None
             )
 
@@ -263,7 +268,7 @@ class TestConstructOutputBlock:
     def test_long_message(self):
         amount = b'\x00\x00\x00\x00\x00\x00\x00\x00'
         _, outputs = sanitize_tx_data(
-            UNSPENTS, [(out[0], out[1], 'satoshi') for out in OUTPUTS], 0, RETURN_ADDRESS, message='hello'*9
+            UNSPENTS, [(out[0], out[1], 'satoshi') for out in OUTPUTS], 0, RETURN_ADDRESS_TEST, message='hello'*9, version='test'
         )
         outs = construct_outputs(outputs)
         assert len(outs) == 5 and outs[3].value == amount and outs[4].value == amount
@@ -271,36 +276,36 @@ class TestConstructOutputBlock:
     def test_outputs_pay2sh(self):
         amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
         _, outputs = sanitize_tx_data(
-            UNSPENTS, [('39SrGQEfFXcTYJhBvjZeQja66Cpz82EEUn', 1, 'satoshi')], 0, RETURN_ADDRESS
+            UNSPENTS, [(BITCOIN_ADDRESS_PAY2SH, 1, 'satoshi')], 0, RETURN_ADDRESS_MAIN
         )
         outs = construct_outputs(outputs)
-        assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a91455131efb7a0edd4c76cc3bbe833bfc59a6f73c6b87'
+        assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a914' + BITCOIN_HASH_PAY2SH + '87'
 
     def test_outputs_pay2sh_testnet(self):
         amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
         _, outputs = sanitize_tx_data(
-            UNSPENTS, [('2NFKbBHzzh32q5DcZJNgZE9sF7gYmtPbawk', 1, 'satoshi')], 0, RETURN_ADDRESS
+            UNSPENTS, [(BITCOIN_ADDRESS_TEST_PAY2SH, 1, 'satoshi')], 0, RETURN_ADDRESS_TEST, version='test'
         )
         outs = construct_outputs(outputs)
-        assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a914f2261e9564c9dfffa81505c153fb95bf9399430887'
+        assert len(outs) == 2 and outs[0].value == amount and outs[0].script.hex() == 'a914' + BITCOIN_HASH_TEST_PAY2SH + '87'
 
     def test_outputs_pay2segwit(self):
         amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
         _, outputs = sanitize_tx_data(
-            UNSPENTS, [('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', 1, 'satoshi'), ('bc1qc7slrfxkknqcq2jevvvkdgvrt8080852dfjewde450xdlk4ugp7szw5tk9', 1, 'satoshi')], 0, RETURN_ADDRESS
+            UNSPENTS, [(BITCOIN_SEGWIT_ADDRESS, 1, 'satoshi'), (BITCOIN_SEGWIT_ADDRESS_PAY2SH, 1, 'satoshi')], 0, RETURN_ADDRESS_MAIN
         )
         outs = construct_outputs(outputs)
-        assert len(outs) == 3 and outs[0].value == amount and outs[0].script.hex() == '0014e8df018c7e326cc253faac7e46cdc51e68542c42'
-        assert outs[1].value == amount and outs[1].script.hex() == '0020c7a1f1a4d6b4c1802a59631966a18359de779e8a6a65973735a3ccdfdabc407d'
+        assert len(outs) == 3 and outs[0].value == amount and outs[0].script.hex() == '0014' + BITCOIN_SEGWIT_HASH
+        assert outs[1].value == amount and outs[1].script.hex() == '0020' + BITCOIN_SEGWIT_HASH_PAY2SH
 
     def test_outputs_pay2segwit_testnet(self):
         amount = b'\x01\x00\x00\x00\x00\x00\x00\x00'
         _, outputs = sanitize_tx_data(
-            UNSPENTS, [('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 1, 'satoshi'), ('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', 1, 'satoshi')], 0, RETURN_ADDRESS
+            UNSPENTS, [(BITCOIN_SEGWIT_ADDRESS_TEST, 1, 'satoshi'), (BItCOIN_SEGWIT_ADDRESS_TEST_PAY2SH, 1, 'satoshi')], 0, RETURN_ADDRESS_TEST, version='test'
         )
         outs = construct_outputs(outputs)
-        assert len(outs) == 3 and outs[0].value == amount and outs[0].script.hex() == '0014751e76e8199196d454941c45d1b3a323f1433bd6'
-        assert outs[1].value == amount and outs[1].script.hex() == '00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262'
+        assert len(outs) == 3 and outs[0].value == amount and outs[0].script.hex() == '0014' + BITCOIN_SEGWIT_HASH_TEST
+        assert outs[1].value == amount and outs[1].script.hex() == '0020' + BITCOIN_SEGWIT_HASH_TEST_PAY2SH
 
 def test_construct_input_block():
     assert construct_input_block(INPUTS) == hex_to_bytes(INPUT_BLOCK)

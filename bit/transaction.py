@@ -12,7 +12,7 @@ from bit.utils import (
     bytes_to_hex, chunk_data, hex_to_bytes, int_to_unknown_bytes, int_to_varint, script_push, get_signatures_from_script
 )
 
-from bit.format import verify_sig
+from bit.format import verify_sig, get_version
 from bit.base58 import b58decode_check
 from bit.base32 import decode as segwit_decode
 
@@ -260,7 +260,7 @@ def deserialize(txhex, sw_dict={}, sw_scriptcode=None):
     return txobj
 
 
-def sanitize_tx_data(unspents, outputs, fee, leftover, combine=True, message=None, compressed=True):
+def sanitize_tx_data(unspents, outputs, fee, leftover, combine=True, message=None, compressed=True, version='main'):
     """
     sanitize_tx_data()
     fee is in satoshis per byte.
@@ -270,6 +270,13 @@ def sanitize_tx_data(unspents, outputs, fee, leftover, combine=True, message=Non
 
     for i, output in enumerate(outputs):
         dest, amount, currency = output
+        
+        # Sanity check: If spending from main-/testnet, then all output addresses must also be for main-/testnet.
+        if amount:  # ``dest`` could be a text to be stored in the blockchain; but only if ``amount`` is exactly zero.
+            vs = get_version(dest)
+            if vs and vs != version:
+                raise ValueError('Cannot send to ' + vs + 'net address when spending from a ' + version + 'net address.')
+        
         outputs[i] = (dest, currency_to_satoshi_cached(amount, currency))
 
     if not unspents:
