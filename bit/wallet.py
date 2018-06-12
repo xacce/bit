@@ -167,7 +167,7 @@ class PrivateKey(BaseKey):
     def sw_address(self):
         """The public segwit nested in P2SH address you share with others to receive funds."""
         if self._sw_address is None and self.is_compressed():  # Only make segwit address if public key is compressed
-                                                               # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                               # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and
                                                                #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
             self._sw_address = public_key_to_segwit_address(self._public_key, version='main')
         return self._sw_address
@@ -488,7 +488,7 @@ class PrivateKeyTestnet(BaseKey):
     def sw_address(self):
         """The public segwit nested in P2SH address you share with others to receive funds."""
         if self._sw_address is None and self.is_compressed():  # Only make segwit address if public key is compressed
-                                                               # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                               # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and
                                                                #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
             self._sw_address = public_key_to_segwit_address(self._public_key, version='test')
         return self._sw_address
@@ -816,7 +816,7 @@ class MultiSig:
             self.public_keys = public_keys
             self.m = m
             self.redeemscript = multisig_to_redeemscript(public_keys, self.m)
-            self.is_compressed = all(len(p) == 33 for p in public_keys)
+            self.is_compressed = all(len(p) == 66 for p in public_keys)
 
     @property
     def address(self):
@@ -829,7 +829,7 @@ class MultiSig:
     def sw_address(self):
         """The public segwit nested in P2SH address you share with others to receive funds."""
         if self._sw_address is None and self.is_compressed is True:  # Only make segwit-address if all public keys are compressed
-                                                                     # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                                     # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and
                                                                      #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
             self._sw_address = multisig_to_segwit_address(self.public_keys, self.m, version='main')
         return self._sw_address
@@ -1110,7 +1110,7 @@ class MultiSigTestnet:
             self.public_keys = public_keys
             self.m = m
             self.redeemscript = multisig_to_redeemscript(public_keys, self.m)
-            self.is_compressed = all(len(p) == 33 for p in public_keys)
+            self.is_compressed = all(len(p) == 66 for p in public_keys)
 
     @property
     def address(self):
@@ -1123,7 +1123,7 @@ class MultiSigTestnet:
     def sw_address(self):
         """The public segwit nested in P2SH address you share with others to receive funds."""
         if self._sw_address is None and self.is_compressed is True:  # Only make segwit-address if all public keys are compressed
-                                                                     # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and 
+                                                                     # See: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#New_script_semantics and
                                                                      #      https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki#Restrictions_on_public_key_type
             self._sw_address = multisig_to_segwit_address(self.public_keys, self.m, version='test')
         return self._sw_address
